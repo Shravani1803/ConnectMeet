@@ -1,20 +1,26 @@
+
 import React from 'react'
 
 export interface ProviderProps {
   remoteStreams: MediaStream[]
   userStream: MediaStream | null
-  setUserMediaStream?: (stream: MediaStream) => void
-  setRemoteMediaStream?: (stream: MediaStream[]) => void
+  setUserMediaStream?: (stream: MediaStream | null) => void
+  setRemoteMediaStream?: React.Dispatch<React.SetStateAction<MediaStream[]>>
 }
 
-export const MediaStreamContext = React.createContext<ProviderProps | null>(
-  null
-)
+interface MediaStreamProviderProps {
+  children: React.ReactNode
+}
 
-export const MediaStreamProvider: React.FC<React.ReactNode> = (props) => {
-  const [remoteMediastreams, setRemoteMediaStream] = React.useState<
-    MediaStream[]
-  >([])
+export const MediaStreamContext =
+  React.createContext<ProviderProps | null>(null)
+
+export const MediaStreamProvider: React.FC<MediaStreamProviderProps> = ({
+  children,
+}) => {
+  const [remoteMediastreams, setRemoteMediaStream] =
+    React.useState<MediaStream[]>([])
+
   const [userMediaStream, setUserMediaStream] =
     React.useState<MediaStream | null>(null)
 
@@ -27,7 +33,7 @@ export const MediaStreamProvider: React.FC<React.ReactNode> = (props) => {
         setUserMediaStream,
       }}
     >
-      {props.children}
+      {children}
     </MediaStreamContext.Provider>
   )
 }

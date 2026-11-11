@@ -100,7 +100,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
       </Drawer>
       <Grid container spacing={2}>
         <Grid item lg={9} md={9} sm={12} xs={12}>
-          {pinVideo ? (
+                    {pinVideo ? (
             <div className="group relative">
               {React.createElement(ReactPlayer as any, {
                 key: pinVideo.id,
@@ -108,10 +108,13 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                 height: "100%",
                 url: pinVideo,
                 playing: true,
+                playsinline: true,
+                volume: 1,
                 controls: false,
                 pip: true,
                 muted: pinVideo.id === userStream?.id
               })}
+
               <button
                 className="absolute top-[50%] left-0 right-0 hidden group-hover:block"
                 onClick={handleUnPinVideo}

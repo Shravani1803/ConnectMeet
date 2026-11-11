@@ -217,16 +217,17 @@ const Home: NextPage = () => {
     [secret]
   )
 
-  const handleNegosiation = React.useCallback(
-    async (ev: Event) => {
-      const offer = await peerService.getOffer()
+   const handleNegosiation = React.useCallback(async () => {
+    if (!peerService.remoteSocketId) return
+    const offer = await peerService.getOffer()
+    if (offer) {
       socket.emit('peer:negotiate', {
         to: peerService.remoteSocketId,
         offer,
       })
-    },
-    [remoteSocketId]
-  )
+    }
+  }, [socket])
+
 
   const handleRequiredPeerNegotiate = React.useCallback(async (data) => {
     const { from, offer } = data
@@ -246,20 +247,30 @@ const Home: NextPage = () => {
     []
   )
 
-  const handleStartAudioVideoStream = React.useCallback(async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: true,
-    })
-
-    if (stream && setUserMediaStream) setUserMediaStream(stream)
-
-    for (const track of stream.getTracks()) {
+   const handleStartAudioVideoStream = React.useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+        video: true,
+      })
+      if (stream && setUserMediaStream) setUserMediaStream(stream)
       if (peerService.peer) {
-        peerService.peer?.addTrack(track, stream)
+        for (const track of stream.getTracks()) {
+          const senders = peerService.peer.getSenders()
+          const alreadyAdded = senders.some((s) => s.track?.kind === track.kind)
+          if (!alreadyAdded) {
+            peerService.peer.addTrack(track, stream)
+          }
+        }
       }
+    } catch (err) {
+      console.error('Error starting audio/video stream:', err)
     }
-  }, [])
+  }, [setUserMediaStream])
+
 
   const handleStartScreenShareStream = React.useCallback(async () => {
     const stream = await navigator.mediaDevices.getDisplayMedia({})
@@ -289,28 +300,31 @@ const Home: NextPage = () => {
 
   React.useEffect(() => {
     loadUsers()
-    const peerServiceInit = peerService.init()
-
+    peerService.init()
     peerService?.peer?.addEventListener('negotiationneeded', handleNegosiation)
-
     let temp = {
       filename: '',
       size: 0,
       checksum: null,
     }
-
     let receivedSize = 0
     let receiveBuffer: Buffer[] = []
 
-    if (peerService.peer) {
-      peerService.peer.addEventListener('track', async (ev) => {
-        const remoteStream = ev.streams
-        if (remoteStream && setRemoteMediaStream) {
-          setRemoteMediaStream([...remoteStreams, remoteStream[0]])
-        }
-      })
-      peerService.peer.addEventListener('ended', async (ev) => {})
+        const handleTrack = (ev: RTCTrackEvent) => {
+      const remoteStream = ev.streams[0]
+      if (remoteStream && setRemoteMediaStream) {
+        setRemoteMediaStream((prev) => {
+          const exists = prev.some((s) => s.id === remoteStream.id)
+          return exists ? prev : [...prev, remoteStream]
+        })
+      }
     }
+
+
+    if (peerService.peer) {
+      peerService.peer.addEventListener('track', handleTrack)
+    }
+
 
     if (peerService.peer)
       //@ts-ignore
@@ -355,7 +369,9 @@ const Home: NextPage = () => {
                 )
               }
               if (data && receivedSize === temp.size) {
-                const blob = new Blob(receiveBuffer)
+                const blob = new Blob(
+                  receiveBuffer.map((buffer) => Uint8Array.from(buffer))
+                )
 
                 ;(async () => {
                   const arraybuffer = await blob.arrayBuffer()
@@ -411,13 +427,15 @@ const Home: NextPage = () => {
           console.log('Data Chanel Created!')
       }
 
-    return () => {
+      return () => {
       peerService?.peer?.removeEventListener(
         'negotiationneeded',
         handleNegosiation
       )
+      peerService?.peer?.removeEventListener('track', handleTrack)
     }
-  }, [remoteStreams])
+  }, [handleNegosiation, loadUsers, secret, setRemoteMediaStream])
+
 
   const handleUserDisconnection = React.useCallback(
     (payload) => {
@@ -458,15 +476,16 @@ const Home: NextPage = () => {
     socket.on('peer:negosiate:result', handleRequiredPeerNegotiateFinalResult)
     socket.on('whiteboard:id', handleSetWhiteboardID)
 
-    return () => {
+       return () => {
       socket.off('refresh:user-list', loadUsers)
       socket.off('peer:incomming-call', handleIncommingCall)
-      socket.off('peer:call-accepted', handleCallAccepted)
+      socket.off('peer:call:accepted', handleCallAccepted)
       socket.off('peer:negotiate', handleRequiredPeerNegotiate)
       socket.off(
         'peer:negosiate:result',
         handleRequiredPeerNegotiateFinalResult
       )
+      socket.off('whiteboard:id', handleSetWhiteboardID)
     }
   }, [])
 

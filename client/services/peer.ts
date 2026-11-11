@@ -1,10 +1,9 @@
-class WebRTCSerice {
+
+class WebRTCService {
   public _peer: RTCPeerConnection
 
   constructor() {
     this._peer = new RTCPeerConnection({
-      //@ts-ignore
-      // sdpSemantics: 'unified-plan',
       iceServers: [
         {
           urls: [
@@ -23,57 +22,69 @@ class WebRTCSerice {
 }
 
 class PeerService {
-  private _webRtc: WebRTCSerice | undefined
+  private _webRtc: WebRTCService | undefined
 
   public myDataChanel: RTCDataChannel | undefined
   public remoteDataChanel: RTCDataChannel | undefined
-
   public remoteSocketId: string | undefined
 
   public init() {
     if (!this._webRtc) {
-      this._webRtc = new WebRTCSerice()
+      this._webRtc = new WebRTCService()
+
       this.myDataChanel = this.peer?.createDataChannel(
         `file-transfer-${Date.now()}`
       )
-      return this
     }
-  }
 
-  public async setRemoteDesc(offer: RTCSessionDescriptionInit) {
-    if (this._webRtc) {
-      console.log('Setting remote desc')
-      return await this._webRtc._peer.setRemoteDescription(
-        new RTCSessionDescription(offer)
-      )
-    }
-  }
-
-  public async getAnswer(offer: RTCSessionDescriptionInit) {
-    if (this._webRtc) {
-      await this._webRtc._peer.setRemoteDescription(
-        new RTCSessionDescription(offer)
-      )
-      const answer = await this._webRtc._peer.createAnswer()
-      await this._webRtc._peer.setLocalDescription(
-        new RTCSessionDescription(answer)
-      )
-      return answer
-    }
-  }
-
-  public async getOffer() {
-    if (this._webRtc) {
-      const offer = await this._webRtc._peer.createOffer()
-      await this._webRtc._peer.setLocalDescription(
-        new RTCSessionDescription(offer)
-      )
-      return offer
-    }
+    return this
   }
 
   public get peer() {
     return this._webRtc?._peer
+  }
+
+  public async setRemoteDesc(offer: RTCSessionDescriptionInit) {
+    if (!this.peer) return
+
+    await this.peer.setRemoteDescription(
+      new RTCSessionDescription(offer)
+    )
+  }
+
+  public async getAnswer(offer: RTCSessionDescriptionInit) {
+    if (!this.peer) return
+
+    await this.peer.setRemoteDescription(
+      new RTCSessionDescription(offer)
+    )
+
+    const answer = await this.peer.createAnswer()
+
+    await this.peer.setLocalDescription(answer)
+
+    return this.peer.localDescription
+  }
+
+  public async getOffer() {
+    if (!this.peer) return
+
+    const offer = await this.peer.createOffer()
+
+    await this.peer.setLocalDescription(offer)
+
+    return this.peer.localDescription
+  }
+
+  public close() {
+    if (this.peer) {
+      this.peer.close()
+    }
+
+    this._webRtc = undefined
+    this.myDataChanel = undefined
+    this.remoteDataChanel = undefined
+    this.remoteSocketId = undefined
   }
 }
 
