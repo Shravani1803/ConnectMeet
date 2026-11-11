@@ -2,12 +2,20 @@ import React, { useState } from 'react'
 import ReactPlayer from 'react-player'
 import Grid from '@mui/material/Grid'
 import Drawer from '@mui/material/Drawer'
-import Button from '@mui/material/Button'
 import { GiHamburgerMenu } from 'react-icons/gi'
-import Draggable from 'react-draggable'
 import { AiFillPushpin } from 'react-icons/ai'
 import FileTransfer, { AvailableFiles } from './FileTransfer'
-import WhiteBoard from './Whiteboard'
+import dynamic from 'next/dynamic'
+
+interface WhiteBoardProps {
+  remoteSocketId?: string
+}
+
+const WhiteBoard = dynamic<WhiteBoardProps>(
+  () => import('../components/Whiteboard'),
+  { ssr: false }
+) as React.ComponentType<WhiteBoardProps>;
+
 import AudioVideoBar from './AudioVideoBar'
 import Chat from './Chat'
 import ScreenShare from './ScreenShare'
@@ -35,7 +43,6 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
     stopScreenShareStreams,
     availableFiles,
     remoteSocketId,
-    whiteboardID,
   } = props
 
   const { userStream, remoteStreams } = React.useContext(
@@ -73,7 +80,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
   }, [])
 
   return (
-    <div className="mt-5  text-white">
+    <div className="mt-5 text-white">
       <GiHamburgerMenu
         className="my-2 cursor-pointer"
         fontSize={20}
@@ -95,16 +102,16 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
         <Grid item lg={9} md={9} sm={12} xs={12}>
           {pinVideo ? (
             <div className="group relative">
-              <ReactPlayer
-                key={pinVideo.id}
-                width="100%"
-                height="100%"
-                url={pinVideo}
-                playing
-                controls={false}
-                pip
-                muted={pinVideo.id === userStream?.id}
-              />
+              {React.createElement(ReactPlayer as any, {
+                key: pinVideo.id,
+                width: "100%",
+                height: "100%",
+                url: pinVideo,
+                playing: true,
+                controls: false,
+                pip: true,
+                muted: pinVideo.id === userStream?.id
+              })}
               <button
                 className="absolute top-[50%] left-0 right-0 hidden group-hover:block"
                 onClick={handleUnPinVideo}
@@ -117,11 +124,9 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
               </button>
             </div>
           ) : (
-            <iframe
-              src={`https://witeboard.com/${whiteboardID}`}
-              height="100%"
-              width="100%"
-            />
+            <div className="h-full w-full min-h-[74vh]">
+              {React.createElement(WhiteBoard as any, { remoteSocketId: remoteSocketId })}
+            </div>
           )}
         </Grid>
         <Grid item lg={3} md={3} sm={12} xs={12}>
